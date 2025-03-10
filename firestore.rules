@@ -2,35 +2,18 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Helper function to check if user is authenticated
-    function isAuthenticated() {
-      return request.auth != null;
-    }
 
-    // Helper function to check if user is the creator of a project
-    function isProjectCreator(projectId) {
-      return isAuthenticated() && 
-        get(/databases/$(database)/documents/projects/$(projectId)).data.creatorId == request.auth.uid;
-    }
-
-    // Projects collection rules
-    match /projects/{projectId} {
-      allow read: if isAuthenticated();
-      allow create: if isAuthenticated() && 
-        request.resource.data.creatorId == request.auth.uid;
-      allow update, delete: if isProjectCreator(projectId);
-    }
-
-    // Investments collection rules
-    match /investments/{investmentId} {
-      allow read: if isAuthenticated();
-      allow create: if isAuthenticated() && 
-        request.resource.data.investorId == request.auth.uid;
-      allow update: if isAuthenticated() && 
-        (resource.data.investorId == request.auth.uid || 
-         get(/databases/$(database)/documents/projects/$(resource.data.projectId)).data.creatorId == request.auth.uid);
-      allow delete: if isAuthenticated() && 
-        resource.data.investorId == request.auth.uid;
+    // This rule allows anyone with your Firestore database reference to view, edit,
+    // and delete all data in your Firestore database. It is useful for getting
+    // started, but it is configured to expire after 30 days because it
+    // leaves your app open to attackers. At that time, all client
+    // requests to your Firestore database will be denied.
+    //
+    // Make sure to write security rules for your app before that time, or else
+    // all client requests to your Firestore database will be denied until you Update
+    // your rules
+    match /{document=**} {
+      allow read, write: if request.time < timestamp.date(2025, 4, 8);
     }
   }
-} 
+}

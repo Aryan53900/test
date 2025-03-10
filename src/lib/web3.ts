@@ -10,6 +10,132 @@ declare global {
   }
 }
 
+import { ethers } from 'ethers'
+
+const CONTRACT_ADDRESS = '0xcB693B3Fe7FB2C44921B3D43779f8040B2f53AbD'
+
+const CONTRACT_ABI = [
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "investmentId",
+        "type": "uint256"
+      }
+    ],
+    "name": "CallScheduled",
+    "type": "event"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "_investmentId",
+        "type": "uint256"
+      }
+    ],
+    "name": "confirmDeal",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "_creator",
+        "type": "address"
+      },
+      {
+        "internalType": "uint256",
+        "name": "_amount",
+        "type": "uint256"
+      }
+    ],
+    "name": "invest",
+    "outputs": [],
+    "stateMutability": "payable",
+    "type": "function"
+  }
+]
+
+export class Web3Service {
+  private provider: ethers.providers.Web3Provider | null = null
+  private contract: ethers.Contract | null = null
+
+  async initialize() {
+    if (typeof window === 'undefined' || !window.ethereum) {
+      throw new Error('Please install MetaMask to use this feature')
+    }
+
+    this.provider = new ethers.providers.Web3Provider(window.ethereum)
+    await this.provider.send('eth_requestAccounts', [])
+    
+    this.contract = new ethers.Contract(
+      CONTRACT_ADDRESS,
+      CONTRACT_ABI,
+      this.provider.getSigner()
+    )
+  }
+
+  async invest(creatorAddress: string, amount: string) {
+    if (!this.contract) await this.initialize()
+    
+    try {
+      // Validate amount
+      if (!amount || isNaN(Number(amount)) || Number(amount) <= 0) {
+        throw new Error('Invalid investment amount')
+      }
+
+      // Convert amount to Wei (1 EDU = 10^18 Wei)
+      const amountInWei = ethers.utils.parseEther(amount)
+      
+      const tx = await this.contract!.invest(creatorAddress, amountInWei, {
+        value: amountInWei
+      })
+      await tx.wait()
+      return tx.hash
+    } catch (error) {
+      console.error('Error investing:', error)
+      throw new Error('Failed to invest. Please try again.')
+    }
+  }
+
+  // Helper function to format amount safely
+  static formatAmount(amount: string | number): string {
+    try {
+      if (!amount) return '0'
+      const numAmount = typeof amount === 'string' ? Number(amount) : amount
+      if (isNaN(numAmount) || numAmount <= 0) return '0'
+      
+      // Convert to Wei first (1 EDU = 10^18 Wei)
+      const amountInWei = ethers.utils.parseEther(numAmount.toString())
+      // Then format back to EDU
+      return ethers.utils.formatEther(amountInWei)
+    } catch (error) {
+      console.error('Error formatting amount:', error)
+      return '0'
+    }
+  }
+
+  async confirmDeal(investmentId: number) {
+    if (!this.contract) await this.initialize()
+    
+    try {
+      const tx = await this.contract!.confirmDeal(investmentId)
+      await tx.wait()
+      return tx.hash
+    } catch (error) {
+      console.error('Error confirming deal:', error)
+      throw new Error('Failed to confirm deal. Please try again.')
+    }
+  }
+}
+
+export const web3Service = new Web3Service()
+
 export async function connectMetaMask(): Promise<string> {
   console.log('Checking for MetaMask...')
   

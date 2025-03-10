@@ -1,22 +1,12 @@
 rules_version = '2';
 
+// Craft rules based on data in your Firestore database
+// allow write: if firestore.get(
+//    /databases/(default)/documents/users/$(request.auth.uid)).data.isAdmin;
 service firebase.storage {
   match /b/{bucket}/o {
-    // Helper function to check if user is authenticated
-    function isAuthenticated() {
-      return request.auth != null;
-    }
-
-    // Helper function to check if user is the creator of a project
-    function isProjectCreator(userId) {
-      return isAuthenticated() && request.auth.uid == userId;
-    }
-
-    // Project images rules
-    match /projects/{userId}/{imageId} {
-      allow read: if isAuthenticated();
-      allow write: if isProjectCreator(userId);
-      allow delete: if isProjectCreator(userId);
+    match /{allPaths=**} {
+      allow read, write: if false;
     }
   }
-} 
+}

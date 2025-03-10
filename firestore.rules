@@ -1,0 +1,36 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Helper function to check if user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // Helper function to check if user is the creator of a project
+    function isProjectCreator(projectId) {
+      return isAuthenticated() && 
+        get(/databases/$(database)/documents/projects/$(projectId)).data.creatorId == request.auth.uid;
+    }
+
+    // Projects collection rules
+    match /projects/{projectId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && 
+        request.resource.data.creatorId == request.auth.uid;
+      allow update, delete: if isProjectCreator(projectId);
+    }
+
+    // Investments collection rules
+    match /investments/{investmentId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && 
+        request.resource.data.investorId == request.auth.uid;
+      allow update: if isAuthenticated() && 
+        (resource.data.investorId == request.auth.uid || 
+         get(/databases/$(database)/documents/projects/$(resource.data.projectId)).data.creatorId == request.auth.uid);
+      allow delete: if isAuthenticated() && 
+        resource.data.investorId == request.auth.uid;
+    }
+  }
+} 
